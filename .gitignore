@@ -1,0 +1,5 @@
+.vscode/
+.python-version
+data/
+models/
+__pycache__/
