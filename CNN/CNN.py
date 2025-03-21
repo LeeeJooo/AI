@@ -3,8 +3,10 @@ from constants import *
 
 # pooling 사용은 지양
 # global average pooling (task 에 따라 필요하다면)
+# 각 channel마다 독립적
 
 class CNN(nn.Module):
+    # POOLING 미사용 버전 #
     def __init__(self):
         super(CNN,self).__init__()
         self.relu = nn.ReLU()
@@ -13,11 +15,12 @@ class CNN(nn.Module):
         self.conv2 = nn.Conv2d(in_channels=20, out_channels=50, kernel_size=5, stride=1)    # 24 - 5 + 1 = 20    >> (batch_size, 50, 20, 20)
         
         self.flatten = nn.Flatten(start_dim=1, end_dim=-1)                                  # 50 x 20 x 20 = 20000  >> (batch_size, 20000)
-        self.fc1 = nn.Linear(in_features=20*20*50, out_features=128)                          #                   >> (batch_size, 128)
+        self.fc1 = nn.Linear(in_features=20*20*50, out_features=128)                        #                   >> (batch_size, 128)
         self.fc2 = nn.Linear(in_features=128, out_features=10)                              #                   >> (batch_size, 10)
         
         self.softmax = nn.Softmax(dim=1)
 
+    # POOLING 사용 버전 #
     # def __init__(self):
     #     super(CNN,self).__init__()
     #     self.relu = nn.ReLU()
