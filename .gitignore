@@ -1,5 +1,5 @@
 .vscode/
 .python-version
-data/
-models/
+CNN/data/
+CNN/models/
 __pycache__/
