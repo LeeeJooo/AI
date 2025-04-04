@@ -1,0 +1,4 @@
+ROW = 3
+COL = 3
+PIDS = [0, 1, 2]
+N_ACTION = 3
