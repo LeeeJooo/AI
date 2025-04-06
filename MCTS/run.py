@@ -1,6 +1,5 @@
 from config import *
 from mcts import MCTS
-from game import Game
 from environment import Environment
 
 def play_game(env, player1, player2):
@@ -22,14 +21,10 @@ def play_game(env, player1, player2):
     if winner == None:
         print('DRAW')
 
-
-    pass
-
 if __name__ == "__main__":
     print('START OMOK GAME')
 
-    game = Game(ROW, COL)
-    env = Environment(game)
+    env = Environment()
     player1 = MCTS(env, PIDS[0])
     player2 = MCTS(env, PIDS[1])
 

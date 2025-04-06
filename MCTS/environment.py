@@ -1,11 +1,12 @@
+from game import Game
+from config import *
+
 class Environment:
-    def __init__(self, game):
+    def __init__(self):
+        self._start_game()
 
-        self.game = game
-        self._play_game()
-
-    def _play_game(self):
-        self.game.play_game()
+    def _start_game(self):
+        self.game = Game(ROW, COL)
 
     def current_state(self):
         current_state = self.game.current_state()

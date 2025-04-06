@@ -1,6 +1,5 @@
 import numpy as np
 from config import *
-from collections import defaultdict
 from copy import deepcopy
 
 class Game() :
@@ -8,7 +7,6 @@ class Game() :
         self.row = row
         self.col = col
         self.board = self._init_board()
-        self.actions = defaultdict()    # key: 좌표(action), value: color(pid)
         self.N_IN_ROW = 5
 
     def _init_board(self):
@@ -17,9 +15,10 @@ class Game() :
     def current_state(self):
         return self.board
     
-    def end_game(self):
+    def end_game(self, state=None):
         # NOT END : 턴 수 부족
-        if len(self.actions) < self.N_IN_ROW*2-1 :
+        n_turn = self._get_n_turn()
+        if n_turn < self.N_IN_ROW*2-1 :
             return False, None
 
         dirs = {'상하':0, '좌우':1, '좌상우하':2, '우상좌하':3}
@@ -65,4 +64,12 @@ class Game() :
     def rollback(self, state):
         self.board = deepcopy(state)
 
+    def _get_n_turn(self):
+        n_turn = 0
+        for r in range(self.row):
+            for c in range(self.col):
+                if self.board[r][c] != 0:
+                    n_turn += 1
+
+        return n_turn
 
