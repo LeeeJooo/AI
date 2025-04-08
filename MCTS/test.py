@@ -1,3 +1,6 @@
-d_ = {'상하':[(-1, 0), (1, 0)], '좌우':[(0, -1),(0, 1)], '좌상우하':[(-1, -1), (1, 1)], '우상좌하':[(-1, 1), (1, -1)]}
-for r, c in d_['상하']:
-    print(r, c)
+import numpy as np
+from copy import deepcopy
+
+a = np.array([])
+if a.shape == (0,):
+    print('ggo')

@@ -5,11 +5,12 @@ from collections import defaultdict
 class Node():
     def __init__(self, state):
         self.state = state  # np.ndarray, shape (ROW, COL)
+        self.action = None  # tuple, (r, c)
         self.value_sum = 0
         self.n_action = 0
-        self.action = None  # tuple, (r, c)
         self.parent_node = None
         self.child_node = None
+        self.winner = 0
     
     def has_child(self):
         if self.child_node is None:
@@ -43,9 +44,6 @@ class Node():
 
     def copy_state(self):
         return deepcopy(self.state)
-    
-    def get_action(self):
-        return self.action
     
     def update_value_sum(self, value):
         self.value_sum += value

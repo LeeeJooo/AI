@@ -1,4 +1,6 @@
-ROW = 3
-COL = 3
+ROW = 8
+COL = 8
+N_IN_ROW = 4
 PIDS = [0, 1, 2]
-N_ACTION = 3
+N_ACTION = 2
+LIMIT_N_TRIAL = 10000
