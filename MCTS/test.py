@@ -1,6 +1,16 @@
 import numpy as np
-from copy import deepcopy
 
-a = np.array([])
-if a.shape == (0,):
-    print('ggo')
+arr = np.array([
+    [1,2,3],
+    [4,5,6]
+])
+a = ''
+
+row, col = arr.shape
+
+for r in range(row):
+    for c in range(col):
+        a += str(arr[r][c])
+    a += '\n'
+
+print(a)
