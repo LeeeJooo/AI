@@ -25,27 +25,27 @@ class EnvConfigHuman:
 class DQNConfig:
     def __init__(self):
         self.num_episodes = 10000
-        self.target_update = 20
+        self.target_update = 10
         self.batch_size = 100
 
-        # epsilon
+        # epsilon, 초반 20은 랜덤
         self.eps_start = 0.9
         self.eps_end = 0.05
         self.eps_decay = 200
 
         self.gamma = 0.95
 
-        self.limit_step = 15
+        self.limit_step = 20
 
         self.weight_path = os.getcwd() + "/weights"
         if not os.path.isdir(self.weight_path):
             os.makedirs(self.weight_path, exist_ok=True)
 
-        self.negative_reward = -3
+        self.negative_reward = -0.01
         self.positive_reward = 5
-        self.same_pos_penalty = -1
+        self.same_pos_penalty = -0.01
 
-        self.replay_memory_size = 10000
+        self.replay_memory_size = 1000
 
         # Optimizer 하이퍼파라미터
         self.lr = 2e-3 # 0.002

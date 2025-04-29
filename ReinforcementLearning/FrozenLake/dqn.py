@@ -11,17 +11,16 @@ from datetime import datetime
 
 Observation = namedtuple('Observation', 'cur_pos, cur_state, action, next_pos, next_state, reward, done')
 class DQN:
-    def __init__(self, config=None, env=None, animation_mode=True, policy_model_name=None, target_model_name=None):
+    def __init__(self, config, env=None, animation_mode=True, policy_model_name=None, target_model_name=None):
         self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        if config is not None:
-            self._config = config
+        self._config = config
         
         self._env = env
         self.h, self.w, self.n_actions = self._env.get_env_info()
         map_size = int(self._config.env_config.map_size[0])
 
         self.policy_net = Network(map_size, map_size, self.n_actions).to(self._device)
-        self.optimizer = optim.NAdam(params=self.policy_net.parameters())               # lr = 2e-3 (default)
+        self.optimizer = optim.NAdam(params=self.policy_net.parameters(), lr=self._config.dqn_config.lr)               # lr = 2e-3 (default)
         
         self.target_net = Network(map_size, map_size, self.n_actions).to(self._device)
         for param in self.target_net.parameters():
@@ -99,6 +98,38 @@ class DQN:
         
         print(f'\nCOMPLETE : (SUCCEED-{self._succeed_cnt}/{self._config.dqn_config.num_episodes})')
         self._save_weights()
+
+    def evaluate_policy(self):
+        # 웅덩이 위치
+        hole_layer = torch.tensor([
+            [0,0,0,0],
+            [0,1,0,1],
+            [0,0,0,1],
+            [1,0,0,0]
+        ], dtype=torch.float32)
+
+        # Goal 위치
+        map_size = int(self._config.env_config.map_size[0])
+        goal_layer = torch.zeros((map_size, map_size), dtype=torch.float32)
+        goal_layer[-1, -1] = 1  # (3,3)
+
+        # 캐릭터 가능한 위치 (0~15)
+        cur_poses = torch.arange(16).long()
+        fixed_states = []
+
+        for cur_pos in cur_poses:
+            cur_pos_r, cur_pos_c = divmod(cur_pos, map_size)
+            
+            # 캐릭터 위치 레이어 초기화
+            character_layer = torch.zeros((map_size, map_size), dtype=torch.float32)
+            character_layer[cur_pos_r, cur_pos_c] = 1.0  # 현재 위치만 1
+
+            # 3채널 (character, hole, goal) stack
+            state = torch.stack([character_layer, hole_layer, goal_layer], dim=0)  # shape (3,4,4)
+            fixed_states.append(state)
+
+        # 최종 텐서로 변환
+        fixed_states = torch.stack(fixed_states, dim=0)  # shape (16, 3, 4, 4)
         
     def _preprocessing(self, *args):    # *args: cur_pos, cur_state, action, next_pos, next_state, reward, done
         cur_pos, cur_state, action, next_pos, next_state, reward, done = args

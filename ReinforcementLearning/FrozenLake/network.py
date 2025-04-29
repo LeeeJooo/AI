@@ -12,7 +12,7 @@ class Network(nn.Module):
         input           -> BATCH_SIZE, 3, 4, 4
         CONV1           -> BATCH_SIZE, 8, 2, 2
         CONV2           -> BATCH_SIZE, 16, 2, 2
-        LINEARIZATION   -> BATCH_SIZE, 64
+        FLATTEN         -> BATCH_SIZE, 64
         FC              -> BATCH_SIZE, 4
         '''
         CONV1_OUT_CHANNELS = 8

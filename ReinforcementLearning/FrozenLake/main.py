@@ -2,23 +2,21 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from environment import Environment
-from dqn_v1 import DQN
+from dqn import DQN
 from config import Config
 import time
 
 ACTIONS = {0: 'LEFT', 1:'DOWN', 2:'RIGHT', 3:'UP'}
 
-def evaluate_dqn(env, policy_model_name, limit_step):
-    agent = DQN(env=env, policy_model_name=policy_model_name, animation_mode=False)
+def evaluate_dqn(env, config, policy_model_name, limit_step):
+    agent = DQN(env=env, config=config, policy_model_name=policy_model_name, animation_mode=False)
 
     env.reset()
-    _, last_screen = env.get_screen()
-    screen, current_screen = env.get_screen()
-    state = current_screen - last_screen
+    _screen = env.get_screen()
 
     plt.ion()
     _, ax = plt.subplots()
-    img = ax.imshow(screen)
+    img = ax.imshow(_screen)
     plt.pause(0.001)
 
     print('GAME START')
@@ -26,6 +24,7 @@ def evaluate_dqn(env, policy_model_name, limit_step):
     N_TRIALS = 100
     succeed_cnt, fail_cnt = 0, 0
     for n_trial in range(N_TRIALS):
+        observation = agent._preprocessing(0, None, None, 0, None, 0., False)
         step=0
         
         while True:
@@ -33,43 +32,50 @@ def evaluate_dqn(env, policy_model_name, limit_step):
             if step > limit_step:
                 fail_cnt += 1
                 break
-            action = agent.get_action(state)
-            _, reward, done, _, _ = env.step(action)
+            action = agent.get_action(observation.cur_state)
+            observation = agent._step(observation, action)
 
-            last_screen = current_screen
-            screen, current_screen = env.get_screen()
-            state = current_screen - last_screen
+            _screen = env.get_screen()
 
-            img.set_data(screen)
+            img.set_data(_screen)
             plt.pause(0.0001)
             print(f'[STEP:{step}] ACTION : {action}-{ACTIONS[action]}')
 
             time.sleep(1)
             
-            if done:
-                if reward > 0:
+            if observation.done:
+                if observation.reward > 0:
                     print('SUCCEEDED')
+                    succeed_cnt += 1
                 else:
                     print('FAILED')
+                    fail_cnt += 1
                 break
         
         print(f'\rSUCCEED: {succeed_cnt:>2}, FAIL: {fail_cnt:>2}')
         
         env.reset()
-        _, last_screen = env.get_screen()
-        screen, current_screen = env.get_screen()
-        state = current_screen - last_screen
-        img.set_data(screen)
+        _screen = env.get_screen()
+        img.set_data(_screen)
 
     plt.ioff()
 
 if __name__ == "__main__":
     config = Config()
     env = Environment(config.env_config)
-    agent = DQN(config, env, animation_mode=False)
+    '''
+    성공 모델 : 4x4, not slippery
+    policy_model_10000_20250429_20h43m.pt : 8529 / 10000
+    policy_model_10000_20250429_20h49m.pt : 8452 / 10000
+    policy_model_10000_20250429_20h51m.pt : 8461 / 10000
+    policy_model_10000_20250429_20h54m.pt : 8550 / 10000
+    '''
+    policy_model_name = 'policy_model_10000_20250429_20h54m.pt'
+    policy_model_name = config.dqn_config.weight_path + '/' + policy_model_name
+    target_model_name = 'target_model_10000_20250429_20h54m.pt'
+    target_model_name = config.dqn_config.weight_path + '/' + target_model_name
+    agent = DQN(config, env, animation_mode=False, policy_model_name=policy_model_name, target_model_name=target_model_name)
     agent.learn()
     policy_model_name = input('policy weight file name: ').strip()
-    # policy_model_name = 'policy_model_1000_20250428_16h47m.pt'
     policy_model_name = config.dqn_config.weight_path + '/' + policy_model_name
-    # model_name.replace("\\", "/")
-    evaluate_dqn(env, policy_model_name, 15)
+    evaluate_dqn(env, config, policy_model_name, 15)
