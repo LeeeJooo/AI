@@ -24,7 +24,7 @@ def evaluate_dqn(env, config, policy_model_name, limit_step):
     N_TRIALS = 100
     succeed_cnt, fail_cnt = 0, 0
     for n_trial in range(N_TRIALS):
-        observation = agent._preprocessing(0, None, None, 0, None, 0., False)
+        observation = agent.preprocessing(0, None, None, 0, None, 0., False)
         step=0
         
         while True:
@@ -33,7 +33,7 @@ def evaluate_dqn(env, config, policy_model_name, limit_step):
                 fail_cnt += 1
                 break
             action = agent.get_action(observation.cur_state)
-            observation = agent._step(observation, action)
+            observation = agent.step(observation, action)
 
             _screen = env.get_screen()
 
@@ -69,13 +69,21 @@ if __name__ == "__main__":
     policy_model_10000_20250429_20h49m.pt : 8452 / 10000
     policy_model_10000_20250429_20h51m.pt : 8461 / 10000
     policy_model_10000_20250429_20h54m.pt : 8550 / 10000
+
+    성공 모델 : 4x4, slippery
+    491 / 10000
+    10h54m : 460 / 10000 (pos-1)
+    10h55m : 357 / 10000 (pos-1)
+    10h57m : 385 / 10000 (pos-3)
+    10h58m : 372 / 10000 (pos-5)
+    11h00m : 313 / 10000 (pos-3, neg--1)
     '''
-    policy_model_name = 'policy_model_10000_20250429_20h54m.pt'
-    policy_model_name = config.dqn_config.weight_path + '/' + policy_model_name
-    target_model_name = 'target_model_10000_20250429_20h54m.pt'
-    target_model_name = config.dqn_config.weight_path + '/' + target_model_name
+    policy_model_name = 'slippery_policy_model_10000_20250430_10h55m'
+    policy_model_name = config.dqn_config.weight_path + '/' + policy_model_name + '.pt'
+    target_model_name = 'slippery_target_model_10000_20250430_10h55m'
+    target_model_name = config.dqn_config.weight_path + '/' + target_model_name + '.pt'
     agent = DQN(config, env, animation_mode=False, policy_model_name=policy_model_name, target_model_name=target_model_name)
     agent.learn()
     policy_model_name = input('policy weight file name: ').strip()
-    policy_model_name = config.dqn_config.weight_path + '/' + policy_model_name
+    policy_model_name = config.dqn_config.weight_path + '/' + policy_model_name + '.pt'
     evaluate_dqn(env, config, policy_model_name, 15)

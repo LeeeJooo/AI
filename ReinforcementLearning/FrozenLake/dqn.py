@@ -17,19 +17,20 @@ class DQN:
         
         self._env = env
         self.h, self.w, self.n_actions = self._env.get_env_info()
-        map_size = int(self._config.env_config.map_size[0])
+        self._map_size = int(self._config.env_config.map_size[0])
 
-        self.policy_net = Network(map_size, map_size, self.n_actions).to(self._device)
+        self.policy_net = Network(self._map_size, self._map_size, self.n_actions).to(self._device)
         self.optimizer = optim.NAdam(params=self.policy_net.parameters(), lr=self._config.dqn_config.lr)               # lr = 2e-3 (default)
         
-        self.target_net = Network(map_size, map_size, self.n_actions).to(self._device)
+        self.target_net = Network(self._map_size, self._map_size, self.n_actions).to(self._device)
         for param in self.target_net.parameters():
             param.requires_grad = False
 
         self._animation_mode = animation_mode
         if self._animation_mode:
-            plt.ion()
             self._fig, self._ax = plt.subplots()
+        self._fig_eval, self._ax_eval = plt.subplots(figsize=(self._map_size*1.8, self._map_size * 1.5))
+        plt.ion()
         
         if policy_model_name is not None:
             self.load_model(policy_model_name, net_name='policy')
@@ -59,7 +60,7 @@ class DQN:
             self._env.reset()
 
             # 'cur_pos, cur_state, action, next_pos, next_state, reward, done'
-            _observation = self._preprocessing(0, None, None, 0, None, 0., False)
+            _observation = self.preprocessing(0, None, None, 0, None, 0., False)
 
             if self._animation_mode:
                 _screen = self._env.get_screen() # current_screen : (1, 3, 256, 256)
@@ -76,7 +77,7 @@ class DQN:
                     break
 
                 _action = self._select_action(_total_step, _observation.cur_state)   # {0: 'LEFT', 1:'DOWN', 2:'RIGHT', 3:'UP'}
-                _observation = self._step(_observation, _action)
+                _observation = self.step(_observation, _action)
                 _observation = self._calculate_reward(_observation)
                 _memory_cache.append(_observation)
       
@@ -93,35 +94,37 @@ class DQN:
             print(f'\rNOW EPISODE :{i_episode:>6}, MEMORY : {len(_memory):>6}', end='')
 
             if i_episode % self._config.dqn_config.target_update == 0:
-                print(f' >> [{i_episode:>5}/{self._config.dqn_config.num_episodes}] TARGET MODEL UPDATE :  (SAME POS-{self._same_pos_cnt}, FAIL-{self._fail_cnt}, SUCCEED-{self._succeed_cnt}), OVER LIMIT STEP CNT-{self._over_step_cnt}')
                 self._sync_nets()
+                self._evaluate_policy(i_episode=i_episode)
+                print(f' >> [{i_episode:>5}/{self._config.dqn_config.num_episodes}] TARGET MODEL UPDATE :  (SAME POS-{self._same_pos_cnt}, FAIL-{self._fail_cnt}, SUCCEED-{self._succeed_cnt}), OVER LIMIT STEP CNT-{self._over_step_cnt}')
         
         print(f'\nCOMPLETE : (SUCCEED-{self._succeed_cnt}/{self._config.dqn_config.num_episodes})')
         self._save_weights()
 
-    def evaluate_policy(self):
-        # 웅덩이 위치
-        hole_layer = torch.tensor([
-            [0,0,0,0],
-            [0,1,0,1],
-            [0,0,0,1],
-            [1,0,0,0]
-        ], dtype=torch.float32)
 
-        # Goal 위치
-        map_size = int(self._config.env_config.map_size[0])
-        goal_layer = torch.zeros((map_size, map_size), dtype=torch.float32)
-        goal_layer[-1, -1] = 1  # (3,3)
+    def _evaluate_policy(self, i_episode):
+        fixed_states = self._get_fixed_states()
+        self.policy_net.eval()
+        with torch.no_grad():
+            q_values = self.policy_net(fixed_states)    # (16, 4)
+        q_values_dict = {i: q_values[i].tolist() for i in range(q_values.size(0))}
+        render_map(self._ax_eval, q_values_dict, i_episode, self._map_size)
+        self.policy_net.train()
+        return q_values
+
+    def _get_fixed_states(self):
+        hole_layer = self._config.env_config.hole_layer_4
+        goal_layer = self._config.env_config.goal_layer_4
 
         # 캐릭터 가능한 위치 (0~15)
-        cur_poses = torch.arange(16).long()
+        cur_poses = list(range(16))
         fixed_states = []
 
         for cur_pos in cur_poses:
-            cur_pos_r, cur_pos_c = divmod(cur_pos, map_size)
+            cur_pos_r, cur_pos_c = divmod(cur_pos, self._map_size)
             
             # 캐릭터 위치 레이어 초기화
-            character_layer = torch.zeros((map_size, map_size), dtype=torch.float32)
+            character_layer = torch.zeros((self._map_size, self._map_size), dtype=torch.float32)
             character_layer[cur_pos_r, cur_pos_c] = 1.0  # 현재 위치만 1
 
             # 3채널 (character, hole, goal) stack
@@ -130,14 +133,14 @@ class DQN:
 
         # 최종 텐서로 변환
         fixed_states = torch.stack(fixed_states, dim=0)  # shape (16, 3, 4, 4)
+        return fixed_states
         
-    def _preprocessing(self, *args):    # *args: cur_pos, cur_state, action, next_pos, next_state, reward, done
+    def preprocessing(self, *args):    # *args: cur_pos, cur_state, action, next_pos, next_state, reward, done
         cur_pos, cur_state, action, next_pos, next_state, reward, done = args
-        map_size = int(self._config.env_config.map_size[0])
 
         if cur_state is None:
-            cur_pos_r, cur_pos_c = cur_pos//map_size, cur_pos%map_size
-            if map_size == 4:
+            cur_pos_r, cur_pos_c = divmod(cur_pos, self._map_size)
+            if self._map_size == 4:
                 cur_state = np.array([
                     [   # 캐릭터 위치
                         [0,0,0,0],
@@ -163,8 +166,8 @@ class DQN:
             cur_state = cur_state.unsqueeze(0)
 
         if next_pos is not None:
-            next_pos_r, next_pos_c = next_pos//map_size, next_pos%map_size
-            if map_size == 4:
+            next_pos_r, next_pos_c = divmod(next_pos, self._map_size)
+            if self._map_size == 4:
                 next_state = np.array([
                     [   # 캐릭터 위치
                         [0,0,0,0],
@@ -202,10 +205,10 @@ class DQN:
         else:
             return random.randrange(self.n_actions)
         
-    def _step(self, prev_observation, action):
+    def step(self, prev_observation, action):
         next_pos, reward, done, _, _ = self._env.step(action)
         # 'cur_pos, cur_state, action, next_pos, next_state, reward, done'
-        observation = self._preprocessing(prev_observation.next_pos, prev_observation.next_state, action, next_pos, None, reward, done)
+        observation = self.preprocessing(prev_observation.next_pos, prev_observation.next_state, action, next_pos, None, reward, done)
         return observation
 
     def _calculate_reward(self, observation):
@@ -282,8 +285,13 @@ class DQN:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def _save_weights(self):
-        torch.save(self.policy_net.state_dict(), f"{self._config.dqn_config.weight_path}/policy_model_{self._config.dqn_config.num_episodes}_{self.date}.pt")
-        torch.save(self.target_net.state_dict(), f"{self._config.dqn_config.weight_path}/target_model_{self._config.dqn_config.num_episodes}_{self.date}.pt")
+        is_slippery = self._config.env_config.is_slippery
+        if is_slippery :
+            prefix = 'slippery'
+        else:
+            prefix = 'not_slippery'
+        torch.save(self.policy_net.state_dict(), f"{self._config.dqn_config.weight_path}/{prefix}_policy_model_{self._config.dqn_config.num_episodes}_{self.date}.pt")
+        torch.save(self.target_net.state_dict(), f"{self._config.dqn_config.weight_path}/{prefix}_target_model_{self._config.dqn_config.num_episodes}_{self.date}.pt")
     
     def get_action(self, state):
         with torch.no_grad():
@@ -303,6 +311,95 @@ class ReplayMemory:
     
     def __len__(self):
         return len(self._memory)
+
+# Q 테이블 렌더링 함수
+def render_map(ax, data, i_episode, map_size=4):
+    ax.cla()
+
+    ACTION = {0: 'L', 1: 'D', 2: 'R', 3: 'U'}
+
+    if map_size == 4:
+        x_positions = [(1, 1), (1, 3), (2, 3), (3, 0)]
+        goal_position = (3,3)
+    elif map_size == 8:
+        x_positions = [(2, 3), (3, 5), (4, 3), (5, 1), (5,2), (5,6), (6,1), (6,4), (6,6), (7,3)]
+        goal_position = (7,7)
+
+    ax.set_xlim(0, map_size)
+    ax.set_ylim(0, map_size)
+    ax.set_title(f'Q-VALUES AFTER {i_episode} EPISODES')
+
+    # 각 셀에 값 표시
+    for key, values in data.items():
+        # key를 좌표로 변환
+        r, c = divmod(key, map_size)
+        
+        # 특정 좌표에 X 추가
+        if (r, c) in x_positions:
+            # X를 그리드에 꽉 차게 표시
+            size = 0.4  # X 크기
+            center_x, center_y = c + 0.5, map_size - r - 0.5
+            ax.plot(
+                [center_x - size, center_x + size],  # 첫 번째 대각선
+                [center_y - size, center_y + size],
+                color="blue", linewidth=5
+            )
+            ax.plot(
+                [center_x - size, center_x + size],  # 두 번째 대각선
+                [center_y + size, center_y - size],
+                color="blue", linewidth=5
+            )
+        elif (r,c) == goal_position:
+            ax.text(
+                    c + 0.5, map_size - r - 0.5,  # 텍스트 위치
+                    f"GOAL",
+                    ha='center', va='center', fontsize=8, color=color, fontweight="bold"
+                )
+        else:
+            # 가장 큰 값과 가장 작은 값 찾기
+            max_value = max(values)
+            min_value = min(values)
+
+
+            # 각 방향별로 텍스트 렌더링
+            for i, value in enumerate(values):
+                # 색상 결정
+                color = (
+                    "black" if value == 0.00 else
+                    "red" if value > 0 and value == max_value else
+                    "lightcoral" if value > 0 else
+                    "blue" if value < 0 and value == min_value else
+                    "cornflowerblue" if value < 0 else
+                    "black"
+                )
+                fontweight = ( "bold" if color == "red" or color == "blue" else
+                            "normal")
+
+                # 방향에 따른 텍스트 오프셋 설정
+                offsets = {
+                    0: (-0.3, 0.0),  # LEFT: 셀 왼쪽
+                    1: (0.0, -0.3),  # DOWN: 셀 아래쪽
+                    2: (0.3, 0.0),   # RIGHT: 셀 오른쪽
+                    3: (0.0, 0.3)    # UP: 셀 위쪽
+                }
+                offset_x, offset_y = offsets[i]
+
+                # 텍스트 내용 설정
+                ax.text(
+                    c + 0.5 + offset_x, map_size - r - 0.5 + offset_y,  # 텍스트 위치
+                    f"{ACTION[i]}:{value:.2f}",
+                    ha='center', va='center', fontsize=10, color=color, fontweight=fontweight
+                )
+
+    # 그리드 설정
+    ax.set_xticks(np.arange(0, map_size + 1, 1))
+    ax.set_yticks(np.arange(0, map_size + 1, 1))
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.grid(which="both", color="black", linestyle='-', linewidth=1)
+
+    # 플롯 표시
+    plt.pause(0.01)
     
 if __name__ == '__main__':
     from config import Config
@@ -311,4 +408,3 @@ if __name__ == '__main__':
     env = Environment(config.env_config)
     agent = DQN(config=config, env=env, animation_mode=True)
     agent.learn()
-    

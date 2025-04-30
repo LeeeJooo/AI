@@ -11,9 +11,9 @@ class Network(nn.Module):
         '''
         input           -> BATCH_SIZE, 3, 4, 4
         CONV1           -> BATCH_SIZE, 8, 2, 2
-        CONV2           -> BATCH_SIZE, 16, 2, 2
+        CONV2           -> BATCH_SIZE, 16, 2, 2 (1x1 kernel size 의미)
         FLATTEN         -> BATCH_SIZE, 64
-        FC              -> BATCH_SIZE, 4
+        FC              -> BATCH_SIZE, 4    (action의 q-value)
         '''
         CONV1_OUT_CHANNELS = 8
         CONV1_KERNEL_SIZE = 3
